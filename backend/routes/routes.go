@@ -2,6 +2,7 @@ package routes
 
 import (
 	"dental-clinic/handlers"
+	adminHandlers "dental-clinic/handlers/admin"
 	"dental-clinic/middleware"
 
 	"github.com/gin-contrib/cors"
@@ -19,31 +20,52 @@ func SetupRoutes(r *gin.Engine) {
 	}))
 
 	// Health check
-	r.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
-	})
+	r.GET("/health", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ok"}) })
 
-	// Auth routes (public)
+	// ── Public Routes ─────────────────────────────────────────────────────────
 	r.POST("/register", handlers.Register)
 	r.POST("/login", handlers.Login)
 
-	// Protected routes
-	auth := r.Group("/")
-	auth.Use(middleware.AuthMiddleware())
+	// Public read endpoints
+	r.GET("/doctors", handlers.GetDoctors)
+	r.GET("/services", handlers.GetServices)
+
+	// ── Authenticated Patient Routes ──────────────────────────────────────────
+	patient := r.Group("/")
+	patient.Use(middleware.AuthMiddleware())
 	{
-		// Doctors
-		auth.GET("/doctors", handlers.GetDoctors)
-		auth.POST("/doctors", middleware.AdminOnly(), handlers.CreateDoctor)
+		patient.POST("/bookings", handlers.CreateBooking)
+		patient.PATCH("/bookings/:id/cancel", handlers.CancelBooking)
+		patient.GET("/bookings/user/:id", handlers.GetBookingsByUser)
+		patient.GET("/bookings/doctor/:id", handlers.GetBookingsByDoctor)
+		patient.GET("/bookings/availability", handlers.CheckSlotAvailability)
+	}
 
-		// Services
-		auth.GET("/services", handlers.GetServices)
-		auth.POST("/services", middleware.AdminOnly(), handlers.CreateService)
+	// ── Admin Routes ──────────────────────────────────────────────────────────
+	admin := r.Group("/admin")
+	admin.Use(middleware.AuthMiddleware(), middleware.AdminOnly())
+	{
+		// Dashboard
+		admin.GET("/dashboard", adminHandlers.GetDashboardStats)
 
-		// Bookings
-		auth.POST("/bookings", handlers.CreateBooking)
-		auth.PATCH("/bookings/:id/cancel", handlers.CancelBooking)
-		auth.GET("/bookings/user/:id", handlers.GetBookingsByUser)
-		auth.GET("/bookings/doctor/:id", handlers.GetBookingsByDoctor)
-		auth.GET("/bookings/availability", handlers.CheckSlotAvailability)
+		// Doctors CRUD
+		admin.GET("/doctors", adminHandlers.GetAllDoctors)
+		admin.POST("/doctors", adminHandlers.CreateDoctor)
+		admin.PUT("/doctors/:id", adminHandlers.UpdateDoctor)
+		admin.DELETE("/doctors/:id", adminHandlers.DeleteDoctor)
+
+		// Services CRUD
+		admin.GET("/services", adminHandlers.GetAllServices)
+		admin.POST("/services", adminHandlers.CreateService)
+		admin.PUT("/services/:id", adminHandlers.UpdateService)
+		admin.DELETE("/services/:id", adminHandlers.DeleteService)
+
+		// Patients
+		admin.GET("/patients", adminHandlers.GetAllPatients)
+		admin.GET("/patients/:id", adminHandlers.GetPatientDetail)
+
+		// Bookings management
+		admin.GET("/bookings", adminHandlers.GetAllBookings)
+		admin.PUT("/bookings/:id/status", adminHandlers.UpdateBookingStatus)
 	}
 }
