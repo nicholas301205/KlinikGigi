@@ -298,6 +298,51 @@ func GetBookingsByDoctor(c *gin.Context) {
 	})
 }
 
+func CancelBooking(c *gin.Context) {
+	bookingIDParam := c.Param("id")
+	bookingID, err := strconv.ParseUint(bookingIDParam, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Error: "Invalid booking ID"})
+		return
+	}
+
+	requestingUserID, _ := c.Get("user_id")
+	role, _ := c.Get("role")
+
+	var booking models.Booking
+	if err := config.DB.First(&booking, bookingID).Error; err != nil {
+		c.JSON(http.StatusNotFound, models.APIResponse{Success: false, Error: "Booking not found"})
+		return
+	}
+
+	if role != "admin" && booking.UserID != requestingUserID.(uint) {
+		c.JSON(http.StatusForbidden, models.APIResponse{Success: false, Error: "Access denied"})
+		return
+	}
+
+	if booking.Status == "cancelled" {
+		c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Error: "Booking already cancelled"})
+		return
+	}
+
+	if booking.Status == "done" {
+		c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Error: "Cannot cancel completed booking"})
+		return
+	}
+
+	if err := config.DB.Model(&booking).Update("status", "cancelled").Error; err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Error: "Failed to cancel booking"})
+		return
+	}
+
+	booking.Status = "cancelled"
+
+	c.JSON(http.StatusOK, models.APIResponse{
+		Success: true,
+		Data:    booking,
+	})
+}
+
 func CheckSlotAvailability(c *gin.Context) {
 	doctorIDStr := c.Query("doctor_id")
 	datetimeStr := c.Query("datetime")

@@ -50,6 +50,7 @@ export const servicesAPI = {
 // Bookings
 export const bookingsAPI = {
   create: (data) => api.post('/bookings', data),
+  cancel: (bookingId) => api.patch(`/bookings/${bookingId}/cancel`),
   getByUser: (userId) => api.get(`/bookings/user/${userId}`),
   getByDoctor: (doctorId) => api.get(`/bookings/doctor/${doctorId}`),
   checkAvailability: (doctorId, datetime) =>

@@ -41,6 +41,7 @@ func SetupRoutes(r *gin.Engine) {
 
 		// Bookings
 		auth.POST("/bookings", handlers.CreateBooking)
+		auth.PATCH("/bookings/:id/cancel", handlers.CancelBooking)
 		auth.GET("/bookings/user/:id", handlers.GetBookingsByUser)
 		auth.GET("/bookings/doctor/:id", handlers.GetBookingsByDoctor)
 		auth.GET("/bookings/availability", handlers.CheckSlotAvailability)

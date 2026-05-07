@@ -8,13 +8,21 @@ import { id as idLocale } from 'date-fns/locale'
 const statusLabels = { pending: 'Menunggu', confirmed: 'Dikonfirmasi', cancelled: 'Dibatalkan', done: 'Selesai' }
 const statusClass = { pending: 'badge-pending', confirmed: 'badge-confirmed', cancelled: 'badge-cancelled', done: 'badge-done' }
 
-function BookingCard({ booking }) {
+function BookingCard({ booking, onCancel }) {
   const dateStr = booking.booking_datetime
     ? format(new Date(booking.booking_datetime), 'EEEE, d MMMM yyyy · HH:mm', { locale: idLocale })
     : '-'
 
   const price = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 })
     .format(booking.service?.price || 0)
+
+  // Logika Batas Waktu Cancel (H-1 atau 24 Jam)
+  const bookingTime = new Date(booking.booking_datetime).getTime()
+  const now = new Date().getTime()
+  const hoursDifference = (bookingTime - now) / (1000 * 60 * 60)
+  
+  // Hanya bisa dicancel jika status pending/confirmed DAN selisih waktu masih >= 24 jam
+  const isCancellable = ['pending', 'confirmed'].includes(booking.status) && hoursDifference >= 24
 
   return (
     <div className={`card p-5 hover:shadow-md transition-shadow ${booking.is_emergency ? 'border-l-4 border-l-coral-500' : ''}`}>
@@ -31,9 +39,22 @@ function BookingCard({ booking }) {
             <p className="text-xs text-gray-400 mt-1.5 italic">"{booking.notes}"</p>
           )}
         </div>
-        <div className="text-right flex-shrink-0">
-          <span className="font-mono text-sm font-semibold text-teal-700">{price}</span>
-          <p className="text-xs text-gray-400 mt-0.5">#{booking.booking_id}</p>
+        
+        <div className="text-right flex-shrink-0 flex flex-col items-end justify-between h-full">
+          <div>
+            <span className="font-mono text-sm font-semibold text-teal-700">{price}</span>
+            <p className="text-xs text-gray-400 mt-0.5">#{booking.booking_id}</p>
+          </div>
+          
+          {/* Tombol Cancel akan muncul jika isCancellable bernilai true */}
+          {isCancellable && (
+            <button 
+              onClick={() => onCancel(booking.booking_id)}
+              className="mt-3 text-xs px-3 py-1.5 rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors font-medium"
+            >
+              Batalkan
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -125,7 +146,7 @@ export default function BookingsPage() {
         service_id: parseInt(form.service_id),
         booking_datetime: new Date(form.booking_datetime).toISOString(),
       }
-      const res = await bookingsAPI.create(payload)
+      await bookingsAPI.create(payload)
       toast.success('Booking berhasil dibuat!')
       setForm({ doctor_id: '', service_id: '', booking_datetime: '', is_emergency: false, notes: '' })
       setRecommendation(null)
@@ -140,6 +161,20 @@ export default function BookingsPage() {
       }
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  // Fungsi Cancel Booking
+  const handleCancel = async (bookingId) => {
+    if (!window.confirm('Apakah Anda yakin ingin membatalkan booking ini?')) return;
+
+    try {
+      // Pastikan bookingsAPI.cancel sudah dibuat di file ../services/api.js
+      await bookingsAPI.cancel(bookingId); 
+      toast.success('Booking berhasil dibatalkan');
+      fetchData(); // Refresh data untuk update status UI
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Gagal membatalkan booking');
     }
   }
 
@@ -306,7 +341,8 @@ export default function BookingsPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {bookings.map(b => <BookingCard key={b.booking_id} booking={b} />)}
+              {/* Tambahkan props onCancel ke komponen BookingCard */}
+              {bookings.map(b => <BookingCard key={b.booking_id} booking={b} onCancel={handleCancel} />)}
             </div>
           )}
         </div>
