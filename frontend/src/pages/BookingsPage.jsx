@@ -79,7 +79,18 @@ export default function BookingsPage() {
     notes: '',
   })
 
+  const selectedDoctor = doctors.find(d => String(d.doctor_id) === form.doctor_id)
+  const selectedService = services.find(s => String(s.service_id) === form.service_id)
+
   const fetchData = useCallback(async () => {
+    if (!user?.user_id) {
+      setBookings([])
+      setDoctors([])
+      setServices([])
+      setLoading(false)
+      return
+    }
+
     try {
       const [bookRes, docRes, svcRes] = await Promise.all([
         bookingsAPI.getByUser(user.user_id),
@@ -140,12 +151,21 @@ export default function BookingsPage() {
     e.preventDefault()
     setSubmitting(true)
     try {
-      const payload = {
-        ...form,
-        doctor_id: parseInt(form.doctor_id),
-        service_id: parseInt(form.service_id),
-        booking_datetime: new Date(form.booking_datetime).toISOString(),
+      if (!selectedDoctor) {
+        throw new Error('Dokter yang dipilih tidak valid. Silakan pilih dokter lagi.')
       }
+      if (!selectedService) {
+        throw new Error('Layanan yang dipilih tidak valid. Silakan pilih layanan lagi.')
+      }
+
+      const payload = {
+        doctor_id: selectedDoctor.doctor_id,
+        service_id: selectedService.service_id,
+        booking_datetime: new Date(form.booking_datetime).toISOString(),
+        is_emergency: form.is_emergency,
+        notes: form.notes,
+      }
+
       await bookingsAPI.create(payload)
       toast.success('Booking berhasil dibuat!')
       setForm({ doctor_id: '', service_id: '', booking_datetime: '', is_emergency: false, notes: '' })
@@ -157,7 +177,7 @@ export default function BookingsPage() {
         setRecommendation(data.data)
         toast.error('Waktu bentrok! Lihat saran waktu di bawah.')
       } else {
-        toast.error(data?.error || 'Gagal membuat booking')
+        toast.error(err.message || data?.error || 'Gagal membuat booking')
       }
     } finally {
       setSubmitting(false)
@@ -221,6 +241,16 @@ export default function BookingsPage() {
                     </option>
                   ))}
                 </select>
+              {selectedDoctor && (
+                <p className="mt-2 text-sm text-slate-500">
+                  Dokter terpilih: <span className="font-semibold text-slate-700">{selectedDoctor.name}</span>
+                </p>
+              )}
+                {selectedService && (
+                  <p className="mt-2 text-sm text-slate-500">
+                    Layanan terpilih: <span className="font-semibold text-slate-700">{selectedService.name}</span>
+                  </p>
+                )}
               </div>
 
               <div>

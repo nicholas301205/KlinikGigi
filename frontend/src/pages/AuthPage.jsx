@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
@@ -8,8 +8,14 @@ function AuthPage({ mode = 'login' }) {
   const [isLogin, setIsLogin] = useState(mode === 'login')
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', password: '' })
-  const { login } = useAuth()
+  const { login, isAuthenticated, user } = useAuth()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(user?.role === 'admin' ? '/admin' : '/', { replace: true })
+    }
+  }, [isAuthenticated, user, navigate])
 
   const handleChange = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
 
@@ -22,7 +28,7 @@ function AuthPage({ mode = 'login' }) {
         const { token, user } = res.data.data
         login(user, token)
         toast.success(`Selamat datang, ${user.name}!`)
-        navigate('/')
+        navigate(user.role === 'admin' ? '/admin' : '/', { replace: true })
       } else {
         await authAPI.register({ name: form.name, email: form.email, password: form.password })
         toast.success('Akun berhasil dibuat! Silakan masuk.')

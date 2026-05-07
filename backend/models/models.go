@@ -44,21 +44,21 @@ type Service struct {
 
 type Booking struct {
 	BookingID       uint      `gorm:"primaryKey;autoIncrement;column:booking_id" json:"booking_id"`
-	UserID          uint      `gorm:"not null;index" json:"user_id"`
-	DoctorID        uint      `gorm:"not null;uniqueIndex:idx_doctor_slot" json:"doctor_id"`
-	ServiceID       uint      `gorm:"not null" json:"service_id"`
-	BookingDatetime time.Time `gorm:"not null;uniqueIndex:idx_doctor_slot" json:"booking_datetime"`
-	IsEmergency     bool      `gorm:"default:false" json:"is_emergency"`
-	Status          string    `gorm:"type:varchar(20);default:pending;check:status IN ('pending','confirmed','cancelled','done','ongoing')" json:"status"`
-	Notes           string    `gorm:"type:text" json:"notes"`
-	AdminNotes      string    `gorm:"type:text" json:"admin_notes"`
-	EstimatedTime   string    `gorm:"type:varchar(100)" json:"estimated_time"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	UserID          uint      `gorm:"not null;index;column:user_id" json:"user_id"`
+	DoctorID        uint      `gorm:"not null;uniqueIndex:idx_doctor_slot;column:doctor_id" json:"doctor_id"`
+	ServiceID       uint      `gorm:"not null;column:service_id" json:"service_id"`
+	BookingDatetime time.Time `gorm:"not null;uniqueIndex:idx_doctor_slot;column:booking_datetime" json:"booking_datetime"`
+	IsEmergency     bool      `gorm:"default:false;column:is_emergency" json:"is_emergency"`
+	Status          string    `gorm:"type:varchar(20);default:pending;check:status IN ('pending','confirmed','cancelled','done','ongoing');column:status" json:"status"`
+	Notes           string    `gorm:"type:text;column:notes" json:"notes"`
+	AdminNotes      string    `gorm:"type:text;column:admin_notes" json:"admin_notes"`
+	EstimatedTime   string    `gorm:"type:varchar(100);column:estimated_time" json:"estimated_time"`
+	CreatedAt       time.Time `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt       time.Time `gorm:"column:updated_at" json:"updated_at"`
 
-	User    *User    `gorm:"foreignKey:UserID" json:"user,omitempty"`
-	Doctor  *Doctor  `gorm:"foreignKey:DoctorID" json:"doctor,omitempty"`
-	Service *Service `gorm:"foreignKey:ServiceID" json:"service,omitempty"`
+	User    *User    `gorm:"foreignKey:UserID;references:UserID" json:"user,omitempty"`
+	Doctor  *Doctor  `gorm:"foreignKey:DoctorID;references:DoctorID" json:"doctor,omitempty"`
+	Service *Service `gorm:"foreignKey:ServiceID;references:ServiceID" json:"service,omitempty"`
 }
 
 // ── Request DTOs ──────────────────────────────────────────────────────────────

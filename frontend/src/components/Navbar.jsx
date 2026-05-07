@@ -8,7 +8,7 @@ export default function Navbar() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const handleLogout = () => { logout(); navigate('/login') }
+  const handleLogout = () => { logout(); navigate('/login', { replace: true }) }
 
   const navLink = (to, label) => (
     <Link
