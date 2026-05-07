@@ -203,7 +203,10 @@ func CreateBooking(c *gin.Context) {
 	}
 
 	// Load relations for response
-	config.DB.Preload("Doctor").Preload("Service").First(&booking, booking.BookingID)
+	config.DB.Preload("Doctor").First(&booking, booking.BookingID)
+	var bookedService models.Service
+	config.DB.First(&bookedService, booking.ServiceID)
+	booking.Service = &bookedService
 
 	recommendation.SuggestedTime = finalTime
 
@@ -255,7 +258,7 @@ func GetBookingsByUser(c *gin.Context) {
 	}
 
 	var bookings []models.Booking
-	if err := config.DB.Preload("Doctor").Preload("Service").
+	if err := config.DB.Preload("Doctor").
 		Where("user_id = ?", targetUserID).
 		Order("booking_datetime DESC").
 		Find(&bookings).Error; err != nil {
@@ -264,6 +267,13 @@ func GetBookingsByUser(c *gin.Context) {
 			Error:   "Failed to fetch bookings",
 		})
 		return
+	}
+
+	for i := range bookings {
+		var service models.Service
+		if err := config.DB.First(&service, bookings[i].ServiceID).Error; err == nil {
+			bookings[i].Service = &service
+		}
 	}
 
 	c.JSON(http.StatusOK, models.APIResponse{
@@ -281,7 +291,7 @@ func GetBookingsByDoctor(c *gin.Context) {
 	}
 
 	var bookings []models.Booking
-	if err := config.DB.Preload("User").Preload("Service").
+	if err := config.DB.Preload("User").
 		Where("doctor_id = ? AND status NOT IN ('cancelled')", doctorID).
 		Order("booking_datetime ASC").
 		Find(&bookings).Error; err != nil {
@@ -292,9 +302,61 @@ func GetBookingsByDoctor(c *gin.Context) {
 		return
 	}
 
+	for i := range bookings {
+		var service models.Service
+		if err := config.DB.First(&service, bookings[i].ServiceID).Error; err == nil {
+			bookings[i].Service = &service
+		}
+	}
+
 	c.JSON(http.StatusOK, models.APIResponse{
 		Success: true,
 		Data:    bookings,
+	})
+}
+
+func CancelBooking(c *gin.Context) {
+	bookingIDParam := c.Param("id")
+	bookingID, err := strconv.ParseUint(bookingIDParam, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Error: "Invalid booking ID"})
+		return
+	}
+
+	requestingUserID, _ := c.Get("user_id")
+	role, _ := c.Get("role")
+
+	var booking models.Booking
+	if err := config.DB.First(&booking, bookingID).Error; err != nil {
+		c.JSON(http.StatusNotFound, models.APIResponse{Success: false, Error: "Booking not found"})
+		return
+	}
+
+	if role != "admin" && booking.UserID != requestingUserID.(uint) {
+		c.JSON(http.StatusForbidden, models.APIResponse{Success: false, Error: "Access denied"})
+		return
+	}
+
+	if booking.Status == "cancelled" {
+		c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Error: "Booking already cancelled"})
+		return
+	}
+
+	if booking.Status == "done" {
+		c.JSON(http.StatusBadRequest, models.APIResponse{Success: false, Error: "Cannot cancel completed booking"})
+		return
+	}
+
+	if err := config.DB.Model(&booking).Update("status", "cancelled").Error; err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{Success: false, Error: "Failed to cancel booking"})
+		return
+	}
+
+	booking.Status = "cancelled"
+
+	c.JSON(http.StatusOK, models.APIResponse{
+		Success: true,
+		Data:    booking,
 	})
 }
 
